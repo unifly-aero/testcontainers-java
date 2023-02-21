@@ -6,6 +6,7 @@ import org.junit.experimental.runners.Enclosed;
 import org.junit.runner.RunWith;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.TestImages;
+import org.testcontainers.utility.ResourceReaper;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -110,6 +111,24 @@ public class NetworkTest {
                 )
                     .as("New network created")
                     .isNotEqualTo(firstId);
+            }
+        }
+
+        @Test
+        public void testResuableNamedNetwork() {
+            try (Network network = Network.newNetwork("random-network-87hf8f")) {
+                String firstId = network.getId();
+                assertThat(
+                        DockerClientFactory.instance().client().inspectNetworkCmd().withNetworkId(firstId).exec()
+                ).as( "Network exists").isNotNull();
+
+                network.close();
+
+                assertThat(firstId).as( "Same network reused, network close didn't work")
+                        .isEqualTo(DockerClientFactory.instance().client().inspectNetworkCmd().withNetworkId(network.getId()).exec().getId());
+
+                // cleanup
+                ResourceReaper.instance().removeNetworkById(network.getId());
             }
         }
     }
